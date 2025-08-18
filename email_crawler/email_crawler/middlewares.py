@@ -3,7 +3,11 @@
 # See documentation in:
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+from collections import Counter
+from urllib.parse        import urlparse
+from scrapy.exceptions   import IgnoreRequest
 from scrapy import signals
+from itemadapter import ItemAdapter
 
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
@@ -98,3 +102,22 @@ class EmailCrawlerDownloaderMiddleware:
 
     def spider_opened(self, spider):
         spider.logger.info("Spider opened: %s" % spider.name)
+
+class DomainPageLimitMiddleware:
+    def __init__(self, limit):
+        self.limit  = limit
+        self.counts = Counter()
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        limit = crawler.settings.getint("PAGES_PER_DOMAIN", 50)
+        return cls(limit)
+
+    def process_request(self, request, spider):
+        host = urlparse(request.url).netloc
+        if self.counts[host] >= self.limit:
+            spider.logger.debug(
+                f"Skipping {request.url} (over {self.limit} pages for {host})"
+            )
+            raise IgnoreRequest()
+        self.counts[host] += 1

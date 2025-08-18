@@ -1,38 +1,51 @@
 # email_crawl_spider.py
 import re
-from scrapy.exceptions import DropItem
 from scrapy.linkextractors import LinkExtractor
 from scrapy.spiders import CrawlSpider, Rule
+from ..db_utils import url_list
+from urllib.parse import urlparse
+
+#Jag har tagit bort bokahem.se för att den hade alldeles för många sidor, men man kan typ göra en separat 
+# spider bara för den. Finns nog en enorm mängd mejladresser där.
 
 class EmailCrawlSpider(CrawlSpider):
     name            = "email_crawl_spider"
-    allowed_domains = ["tagforetagen.se"]          # restricts crawling to this domain
-    start_urls      = ["https://www.tagforetagen.se/"] # your seed URL(s)
-
-    # 1. Define how links are followed
+    start_urls = url_list
+    allowed_domains = [urlparse(u).netloc for u in url_list]
+    #Denna går in i item pipeline och bestämmer vilka mejladresser som faktiskt tas med.
+    # Man kan alltså mecka med detta. T.ex lägg till @gmail.com för det kommer inte ett seriöst företag ha
+    domains_without_www = [x[4:] if x.startswith("www.") else x for x in allowed_domains]
     rules = (
         Rule(
             LinkExtractor(
                 allow_domains=allowed_domains,
                 deny_extensions=["png","jpg","gif","css","js","pdf"]
             ),
-            callback="parse_email",  # called on every fetched page
-            follow=False             # keep following links from those pages
+            callback="parse_email",
+            follow=True,
         ),
     )
 
-    email_pattern = re.compile(r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}")
+    email_pattern = re.compile(
+        r"[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}", re.I
+    )
 
     def parse_email(self, response):
-        found = set(self.email_pattern.findall(response.text))
+        """
+        Called on every page matched by your Rule.
+        Finds all emails in the HTML and yields items.
+        """
+        depth = response.meta.get("depth", 0)
+        self.logger.debug(f"[depth={depth}] parsing {response.url}")
+        text = response.text or ""
+        found = set(self.email_pattern.findall(text))
+
+        self.logger.debug(f"{response.url} → {len(found)} emails")
+
         for email in found:
-            yield {"email": email}
-
-
-# resultat från dagens arbete: 
-    # 1. Det tar lång tid att gå igenom en ordentlig hemsida.
-    # Det tog säkert runt 20-30 sekunder för att gå igenom en hel webbplats med alla sina sidor.
-    # 2. Går man igenom en hel webbplats, åtminstone en med många sidor, får man jävligt många mejladresser, varav endast ett fåtal är användbara.
-    # Man måste alltså på något sätt begränsa vilka mejladresser som tas med, förslagsvis endast de som har samma slut som namnet på företaget. 
-    # 3. I och med att man får så många behöver man kanske inte fånga upp alla avvikande fall, vilket skulle spara rejält med tid och arbete.
-    # Åtminstone om man kan samla på sig många hemsidor, vilket borde vara möjligt med google maps scraping. 
+            domain = urlparse(response.url).netloc
+            yield {
+                "email":        email.lower(),
+                "source_url":    response.url,
+                "source_domain": domain[4:] if domain.startswith("www.") else domain 
+            }
