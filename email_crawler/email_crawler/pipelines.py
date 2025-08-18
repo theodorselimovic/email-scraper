@@ -7,7 +7,7 @@
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
 from scrapy.exceptions import DropItem
-
+from urllib.parse import urlparse
 
 class EmailCrawlerPipeline:
     def process_item(self, item, spider):
@@ -15,15 +15,18 @@ class EmailCrawlerPipeline:
 
 
 class DuplicatesPipeline:
-    """Drop duplicate emails in‐memory."""
+    # drops duplicates and email adresses that do not correspond to company domain
     def __init__(self):
         self.seen = set()
 
     def process_item(self, item, spider):
         email = item.get("email")
+        _, domain = email.lower().split("@")
         if not email:
             return item
         if email in self.seen:
-            raise DropItem()
+            raise DropItem("Email already found")
+        if domain not in spider.domains_without_www:
+            raise DropItem("Email does not belong to allowed domain")
         self.seen.add(email)
         return item
