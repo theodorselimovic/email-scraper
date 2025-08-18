@@ -30,4 +30,4 @@ Thumbs.db
 ehthumbs.db
 
 #email list
-emails.json
+email_crawler/emails.json
