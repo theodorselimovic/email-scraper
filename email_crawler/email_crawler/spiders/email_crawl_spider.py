@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 class EmailCrawlSpider(CrawlSpider):
     name            = "email_crawl_spider"
     start_urls = url_list
+    #This also feels inefficient. Why can't we do this in the db_utils.py function?
     allowed_domains = [urlparse(u).netloc for u in url_list]
     #Denna går in i item pipeline och bestämmer vilka mejladresser som faktiskt tas med.
     # Man kan alltså mecka med detta. T.ex lägg till @gmail.com för det kommer inte ett seriöst företag ha
