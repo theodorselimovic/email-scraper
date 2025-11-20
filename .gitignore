@@ -31,3 +31,6 @@ ehthumbs.db
 
 #email list
 email_crawler/emails.json
+
+#adresses
+adresses/
