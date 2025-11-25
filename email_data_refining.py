@@ -1,5 +1,4 @@
 import glob
-import numpy as np
 import pandas as pd
 import json
 
@@ -20,7 +19,7 @@ emails["email_clean"] = (emails["email"]
                          .astype(str)
                          .str.lower()
                          .str.strip()
-                         .str.replace(r"^u003e", "", regex=True))
+                         .str.replace(r"u003e", "", regex=True))
 
 emails["domain_clean"] = (
     emails["source_domain"]
@@ -29,15 +28,21 @@ emails["domain_clean"] = (
     .str.strip())
 
 #Removes a certain number of email adresses. Note parentheses
-emails_clean = emails[
-    ~( (emails["email_clean"].str.startswith(("info", "kontakt", "support")) &
-        emails["domain_clean"].duplicated(keep=False))
-      |
-      (emails["email_clean"].str.contains("gdpr|faktura|upphandling|rekrytering|reception|reservation", case=False, na=False))
+emails_clean = (
+     emails[
+    ~(
+      (emails["email_clean"]
+      .str.contains("gdpr|faktura|upphandling|rekrytering|reception|reservation|info|kontakt|support|events|bokning|restaurang|restaurant|offert|kansli|hantverkare|renovera|jobb|felanmmalan|uppsagning|press",
+                     case=False,
+                       na=False)) |
+     ~(emails["email_clean"].str.contains(r"^[^@]+\.[^@]+@[^@]+$", regex= True))
     )
 ]
+.drop(columns="email")
+)
 
 print(emails_clean.head())
 print(len(emails_clean))
 
 #To Do: Save the emails, presumably as a json file or something. Depends on the email sender.
+emails_clean.to_csv("/Users/theodorselimovic/Library/CloudStorage/OneDrive-Personal/Work/Ratio/Mejladresser/email_clean.csv")
